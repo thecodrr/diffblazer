@@ -1,0 +1,32 @@
+{
+	"name": "htmldiff-javascript",
+	"description": "Typescript port of HtmlDiff.Net which is itself a C# port of HtmlDiff",
+	"author": {
+		"email": "jibin.thomas2706@gmail.com",
+		"name": "Jibin Thomas"
+	},
+	"license": "MIT",
+	"version": "0.0.1",
+	"type": "module",
+	"files": [
+		"dist"
+	],
+	"main": "./dist/htmldiff.umd.cjs",
+	"module": "./dist/htmldiff.js",
+	"exports": {
+		".": {
+			"import": "./dist/htmldiff.js",
+			"require": "./dist/htmldiff.umd.cjs"
+		}
+	},
+	"scripts": {
+		"dev": "vite",
+		"build": "tsc && vite build",
+		"preview": "vite preview"
+	},
+	"devDependencies": {
+		"@types/node": "^20.4.4",
+		"typescript": "^5.1.6",
+		"vite": "^4.4.6"
+	}
+}

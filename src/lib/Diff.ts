@@ -5,6 +5,7 @@ import Operation from './Operation'
 import MatchOptions from './MatchOptions'
 import * as WordSplitter from './WordSplitter'
 import * as Utils from './Utils'
+import type { HTMLDiffOptions } from './types'
 
 // This value defines balance between speed and memory utilization. The higher it is the faster it works and more memory consumes.
 const MatchGranuarityMaximum = 4
@@ -40,7 +41,7 @@ class HtmlDiff {
 	private ignoreWhiteSpaceDifferences: boolean
 	private orphanMatchThreshold: number
 
-	constructor(oldText: string, newText: string) {
+	constructor(oldText: string, newText: string, options?: Partial<HTMLDiffOptions>) {
 		this.content = []
 		this.newText = newText
 		this.oldText = oldText
@@ -51,13 +52,13 @@ class HtmlDiff {
 		this.matchGranularity = 0
 		this.blockExpressions = []
 
-		this.repeatingWordsAccuracy = 1.0
-		this.ignoreWhiteSpaceDifferences = false
-		this.orphanMatchThreshold = 0.0
+		this.repeatingWordsAccuracy = options?.repeatingWordsAccuracy ?? 1.0
+		this.ignoreWhiteSpaceDifferences = options?.ignoreWhiteSpaceDifferences ?? false
+		this.orphanMatchThreshold = options?.orphanMatchThreshold ?? 0.0
 	}
 
-	static execute(oldText: string, newText: string) {
-		return new HtmlDiff(oldText, newText).build()
+	static execute(oldText: string, newText: string, options?: Partial<HTMLDiffOptions>) {
+		return new HtmlDiff(oldText, newText, options).build()
 	}
 
 	build() {

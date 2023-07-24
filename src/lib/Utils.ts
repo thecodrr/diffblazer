@@ -5,53 +5,51 @@ const wordRegex = /[\w\#@]+/
 
 const specialCaseWordTags = ['<img']
 
-function isTag(item) {
+function isTag(item: string) {
 	if (specialCaseWordTags.some((re) => item !== null && item.startsWith(re))) {
 		return false
 	}
-
 	return tagRegex.test(item)
 }
 
-function stripTagAttributes(word) {
-	let tag = tagWordRegex.exec(word)[0]
+function stripTagAttributes(word: string) {
+	let tag = tagWordRegex.exec(word)?.[0]
 	word = tag + (word.endsWith('/>') ? '/>' : '>')
 	return word
 }
 
-function wrapText(text, tagName, cssClass) {
+function wrapText(text: string, tagName: string, cssClass: string) {
 	return ['<', tagName, ' class="', cssClass, '">', text, '</', tagName, '>'].join('')
 }
 
-function isStartOfTag(val) {
-	return val === '<'
+function isStartOfTag(character: string) {
+	return character === '<'
 }
 
-function isEndOfTag(val) {
-	return val === '>'
+function isEndOfTag(character: string) {
+	return character === '>'
 }
 
-function isStartOfEntity(val) {
-	return val === '&'
+function isStartOfEntity(character: string) {
+	return character === '&'
 }
 
-function isEndOfEntity(val) {
-	return val === ';'
+function isEndOfEntity(character: string) {
+	return character === ';'
 }
 
-function isWhiteSpace(value) {
-	return whitespaceRegex.test(value)
+function isWhiteSpace(character: string) {
+	return whitespaceRegex.test(character)
 }
 
-function stripAnyAttributes(word) {
+function stripAnyAttributes(word: string) {
 	if (isTag(word)) {
 		return stripTagAttributes(word)
 	}
-
 	return word
 }
 
-function isWord(text) {
+function isWord(text: string) {
 	return wordRegex.test(text)
 }
 

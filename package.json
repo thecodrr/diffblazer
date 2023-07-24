@@ -6,17 +6,19 @@
 		"name": "Jibin Thomas"
 	},
 	"license": "MIT",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"type": "module",
 	"files": [
 		"dist"
 	],
 	"main": "./dist/htmldiff.umd.cjs",
 	"module": "./dist/htmldiff.js",
+	"types": "./dist/Diff.d.ts",
 	"exports": {
 		".": {
 			"import": "./dist/htmldiff.js",
-			"require": "./dist/htmldiff.umd.cjs"
+			"require": "./dist/htmldiff.umd.cjs",
+			"types": "./dist/Diff.d.ts"
 		}
 	},
 	"scripts": {
@@ -28,6 +30,7 @@
 	"devDependencies": {
 		"@types/node": "^20.4.4",
 		"typescript": "^5.1.6",
-		"vite": "^4.4.6"
+		"vite": "^4.4.6",
+		"vite-plugin-dts": "^3.3.1"
 	}
 }

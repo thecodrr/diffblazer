@@ -1,5 +1,9 @@
 ﻿export default class Match {
-	constructor(startInOld, startInNew, size) {
+	startInOld: number
+	startInNew: number
+	size: number
+
+	constructor(startInOld: number, startInNew: number, size: number) {
 		this.startInOld = startInOld
 		this.startInNew = startInNew
 		this.size = size

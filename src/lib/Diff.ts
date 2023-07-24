@@ -26,7 +26,21 @@ const specialCaseClosingTags = new Map([
 const specialCaseOpeningTagRegex = /<((strong)|(b)|(i)|(dfn)|(em)|(big)|(small)|(u)|(sub)|(sup)|(strike)|(s))[\>\s]+/gi
 
 class HtmlDiff {
-	constructor(oldText, newText) {
+	private content: string[]
+	private newText: string
+	private oldText: string
+
+	private specialTagDiffStack: string[]
+	private newWords: string[]
+	private oldWords: string[]
+	private matchGranularity: number
+	private blockExpressions: RegExp[]
+
+	private repeatingWordsAccuracy: number
+	private ignoreWhiteSpaceDifferences: boolean
+	private orphanMatchThreshold: number
+
+	constructor(oldText: string, newText: string) {
 		this.content = []
 		this.newText = newText
 		this.oldText = oldText
@@ -40,6 +54,10 @@ class HtmlDiff {
 		this.repeatingWordsAccuracy = 1.0
 		this.ignoreWhiteSpaceDifferences = false
 		this.orphanMatchThreshold = 0.0
+	}
+
+	static execute(oldText: string, newText: string) {
+		return new HtmlDiff(oldText, newText).build()
 	}
 
 	build() {
@@ -59,7 +77,7 @@ class HtmlDiff {
 		return this.content.join('')
 	}
 
-	addBlockExpression(exp) {
+	addBlockExpression(exp: RegExp) {
 		this.blockExpressions.push(exp)
 	}
 
@@ -67,15 +85,15 @@ class HtmlDiff {
 		this.oldWords = WordSplitter.convertHtmlToListOfWords(this.oldText, this.blockExpressions)
 
 		//free memory, allow it for GC
-		this.oldText = null
+		this.oldText = ''
 
 		this.newWords = WordSplitter.convertHtmlToListOfWords(this.newText, this.blockExpressions)
 
 		//free memory, allow it for GC
-		this.newText = null
+		this.newText = ''
 	}
 
-	performOperation(opp) {
+	performOperation(opp: Operation) {
 		switch (opp.action) {
 			case Action.equal:
 				this.processEqualOperation(opp)
@@ -94,32 +112,32 @@ class HtmlDiff {
 		}
 	}
 
-	processReplaceOperation(opp) {
+	processReplaceOperation(opp: Operation) {
 		this.processDeleteOperation(opp, 'diffmod')
 		this.processInsertOperation(opp, 'diffmod')
 	}
 
-	processInsertOperation(opp, cssClass) {
-		let text = this.newWords.filter((s, pos) => pos >= opp.startInNew && pos < opp.endInNew)
+	processInsertOperation(opp: Operation, cssClass: string) {
+		let text = this.newWords.filter((_, pos) => pos >= opp.startInNew && pos < opp.endInNew)
 		this.insertTag('ins', cssClass, text)
 	}
 
-	processDeleteOperation(opp, cssClass) {
-		let text = this.oldWords.filter((s, pos) => pos >= opp.startInOld && pos < opp.endInOld)
+	processDeleteOperation(opp: Operation, cssClass: string) {
+		let text = this.oldWords.filter((_, pos) => pos >= opp.startInOld && pos < opp.endInOld)
 		this.insertTag('del', cssClass, text)
 	}
 
-	processEqualOperation(opp) {
-		let result = this.newWords.filter((s, pos) => pos >= opp.startInNew && pos < opp.endInNew)
+	processEqualOperation(opp: Operation) {
+		let result = this.newWords.filter((_, pos) => pos >= opp.startInNew && pos < opp.endInNew)
 		this.content.push(result.join(''))
 	}
 
-	insertTag(tag, cssClass, words) {
+	insertTag(tag: string, cssClass: string, words: string[]) {
 		while (words.length) {
 			let nonTags = this.extractConsecutiveWords(words, (x) => !Utils.isTag(x))
 
 			let specialCaseTagInjection = ''
-			let specialCaseTagInjectionIsbefore = false
+			let specialCaseTagInjectionIsBefore = false
 
 			if (nonTags.length !== 0) {
 				let text = Utils.wrapText(nonTags.join(''), tag, cssClass)
@@ -127,8 +145,8 @@ class HtmlDiff {
 			} else {
 				if (specialCaseOpeningTagRegex.test(words[0])) {
 					let matchedTag = words[0].match(specialCaseOpeningTagRegex)
-					matchedTag = '<' + matchedTag[0].replace(/(<|>| )/g, '') + '>'
-					this.specialTagDiffStack.push(matchedTag)
+					let tag = '<' + matchedTag?.[0].replace(/(<|>| )/g, '') + '>'
+					this.specialTagDiffStack.push(tag)
 					specialCaseTagInjection = '<ins class="mod">'
 					if (tag === 'del') {
 						words.shift()
@@ -142,7 +160,7 @@ class HtmlDiff {
 
 					if (!(openingTag === null || openingTag !== words[0].replace(/\//g, ''))) {
 						specialCaseTagInjection = '</ins>'
-						specialCaseTagInjectionIsbefore = true
+						specialCaseTagInjectionIsBefore = true
 					}
 
 					if (tag === 'del') {
@@ -158,7 +176,7 @@ class HtmlDiff {
 					break
 				}
 
-				if (specialCaseTagInjectionIsbefore) {
+				if (specialCaseTagInjectionIsBefore) {
 					this.content.push(specialCaseTagInjection + this.extractConsecutiveWords(words, Utils.isTag).join(''))
 				} else {
 					this.content.push(this.extractConsecutiveWords(words, Utils.isTag).join('') + specialCaseTagInjection)
@@ -167,8 +185,8 @@ class HtmlDiff {
 		}
 	}
 
-	extractConsecutiveWords(words, condition) {
-		let indexOfFirstTag = null
+	extractConsecutiveWords(words: string[], condition: (value: string) => boolean) {
+		let indexOfFirstTag: number | null = null
 
 		for (let i = 0; i < words.length; i++) {
 			let word = words[i]
@@ -184,14 +202,14 @@ class HtmlDiff {
 		}
 
 		if (indexOfFirstTag !== null) {
-			let items = words.filter((s, pos) => pos >= 0 && pos < indexOfFirstTag)
+			let items = words.filter((_, pos) => pos >= 0 && pos < indexOfFirstTag!)
 			if (indexOfFirstTag > 0) {
 				words.splice(0, indexOfFirstTag)
 			}
 
 			return items
 		} else {
-			let items = words.filter((s, pos) => pos >= 0 && pos < words.length)
+			let items = words.filter((_, pos) => pos >= 0 && pos < words.length)
 			words.splice(0, words.length)
 			return items
 		}
@@ -208,6 +226,7 @@ class HtmlDiff {
 		let matchesWithoutOrphans = this.removeOrphans(matches)
 
 		for (let match of matchesWithoutOrphans) {
+			if (match === null) continue
 			let matchStartsAtCurrentPositionInOld = positionInOld === match.startInOld
 			let matchStartsAtCurrentPositionInNew = positionInNew === match.startInNew
 
@@ -227,7 +246,7 @@ class HtmlDiff {
 				operations.push(new Operation(action, positionInOld, match.startInOld, positionInNew, match.startInNew))
 			}
 
-			if (match.length !== 0) {
+			if (match.size !== 0) {
 				operations.push(new Operation(Action.equal, match.startInOld, match.endInOld, match.startInNew, match.endInNew))
 			}
 
@@ -238,7 +257,7 @@ class HtmlDiff {
 		return operations
 	}
 
-	*removeOrphans(matches) {
+	*removeOrphans(matches: Match[]) {
 		let prev = null
 		let curr = null
 
@@ -250,19 +269,18 @@ class HtmlDiff {
 			}
 
 			if (
-				(prev.endInOld === curr.startInOld && prev.endInNew === curr.startInNew) ||
+				(prev?.endInOld === curr.startInOld && prev?.endInNew === curr.startInNew) ||
 				(curr.endInOld === next.startInOld && curr.endInNew === next.startInNew)
 			) {
 				yield curr
-				let tmp = (prev = curr) // "let tmp" avoids babel traspiling error
 				curr = next
 				continue
 			}
 
-			let sumLength = (t, n) => t + n.length
+			let sumLength = (t: number, n: string) => t + n.length
 
-			let oldDistanceInChars = this.oldWords.slice(prev.endInOld, next.startInOld).reduce(sumLength, 0)
-			let newDistanceInChars = this.newWords.slice(prev.endInNew, next.startInNew).reduce(sumLength, 0)
+			let oldDistanceInChars = this.oldWords.slice(prev?.endInOld, next.startInOld).reduce(sumLength, 0)
+			let newDistanceInChars = this.newWords.slice(prev?.endInNew, next.startInNew).reduce(sumLength, 0)
 			let currMatchLengthInChars = this.newWords.slice(curr.startInNew, curr.endInNew).reduce(sumLength, 0)
 			if (currMatchLengthInChars > Math.max(oldDistanceInChars, newDistanceInChars) * this.orphanMatchThreshold) {
 				yield curr
@@ -276,12 +294,18 @@ class HtmlDiff {
 	}
 
 	matchingBlocks() {
-		let matchingBlocks = []
+		let matchingBlocks: Match[] = []
 		this.findMatchingBlocks(0, this.oldWords.length, 0, this.newWords.length, matchingBlocks)
 		return matchingBlocks
 	}
 
-	findMatchingBlocks(startInOld, endInOld, startInNew, endInNew, matchingBlocks) {
+	findMatchingBlocks(
+		startInOld: number,
+		endInOld: number,
+		startInNew: number,
+		endInNew: number,
+		matchingBlocks: Match[],
+	) {
 		let match = this.findMatch(startInOld, endInOld, startInNew, endInNew)
 
 		if (match !== null) {
@@ -297,7 +321,7 @@ class HtmlDiff {
 		}
 	}
 
-	findMatch(startInOld, endInOld, startInNew, endInNew) {
+	findMatch(startInOld: number, endInOld: number, startInNew: number, endInNew: number) {
 		for (let i = this.matchGranularity; i > 0; i--) {
 			let options = new MatchOptions()
 			options.blockSize = i
@@ -313,10 +337,6 @@ class HtmlDiff {
 
 		return null
 	}
-}
-
-HtmlDiff.execute = function (oldText, newText) {
-	return new HtmlDiff(oldText, newText).build()
 }
 
 export default HtmlDiff

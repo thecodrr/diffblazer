@@ -324,7 +324,7 @@ class HtmlDiff {
 
 	findMatch(startInOld: number, endInOld: number, startInNew: number, endInNew: number) {
 		for (let i = this.matchGranularity; i > 0; i--) {
-			let options = new MatchOptions()
+			let options = MatchOptions
 			options.blockSize = i
 			options.repeatingWordsAccuracy = this.repeatingWordsAccuracy
 			options.ignoreWhitespaceDifferences = this.ignoreWhiteSpaceDifferences

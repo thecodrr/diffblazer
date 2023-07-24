@@ -22,9 +22,8 @@
 		}
 	},
 	"scripts": {
-		"dev": "vite",
+		"dev": "vite src/demo",
 		"build": "tsc && vite build",
-		"preview": "vite preview",
 		"publish": "npm publish --access public"
 	},
 	"devDependencies": {

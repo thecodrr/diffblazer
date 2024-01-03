@@ -50,6 +50,34 @@ exports[`tokenize html > should identify contiguous whitespace as a single token
 ]
 `;
 
+exports[`tokenize html > should identify doctype 1`] = `
+[
+  {
+    "length": 7,
+    "name": "doctype",
+    "raw": "<!doctype>",
+    "type": "tag-start",
+  },
+  {
+    "length": 1,
+    "name": "p",
+    "raw": "<p>",
+    "type": "tag-start",
+  },
+  {
+    "length": 5,
+    "type": "text",
+    "value": "hello",
+  },
+  {
+    "length": 1,
+    "name": "p",
+    "raw": "</p>",
+    "type": "tag-end",
+  },
+]
+`;
+
 exports[`tokenize html > should identify self closing tags as tokens 1`] = `
 [
   {

@@ -14,7 +14,7 @@ const specialCaseTags = new Set(['strong', 'em', 'b', 'i', 'big', 'small', 'u', 
 const ATTRIBUTE_REGEX = (attr: string) => new RegExp(` ${attr}=(.+?['"])`)
 const SRC_REGEX = ATTRIBUTE_REGEX('src')
 const DATA_REGEX = ATTRIBUTE_REGEX('data')
-const MATH_CONTENT_REGEX = /<math.+?>(.+)?<\/math>/
+const MATH_CONTENT_REGEX = /<math.*?>(.+)?<\/\s*math>/
 
 function attributeMatcher(token: Tokenizer.TagToken, attributes: Record<string, RegExp>) {
 	let text = token.name
@@ -50,7 +50,6 @@ class HtmlDiff {
 	private oldTokens: Tokenizer.Token[]
 	private matchGranularity: number
 
-	private repeatingTokensAccuracy: number
 	private ignoreWhiteSpaceDifferences: boolean
 	private orphanMatchThreshold: number
 	private atomicTags: string[]
@@ -67,7 +66,6 @@ class HtmlDiff {
 		this.oldTokens = []
 		this.matchGranularity = options?.matchGranularity ?? MatchGranuarityMaximum
 
-		this.repeatingTokensAccuracy = options?.repeatingTokensAccuracy ?? 1.0
 		this.ignoreWhiteSpaceDifferences = options?.ignoreWhiteSpaceDifferences ?? false
 		this.orphanMatchThreshold = options?.orphanMatchThreshold ?? 0.0
 		this.atomicTags = options?.atomicTags ?? Tokenizer.DEFAULT_ATOMIC_TAGS
@@ -125,8 +123,6 @@ class HtmlDiff {
 				break
 			case Action.insert:
 				this.processInsertOperation(opp, this.classNames.ins)
-				break
-			case Action.none:
 				break
 			case Action.replace:
 				this.processReplaceOperation(opp)
@@ -261,7 +257,7 @@ class HtmlDiff {
 			let matchStartsAtCurrentPositionInOld = positionInOld === match.startInOld
 			let matchStartsAtCurrentPositionInNew = positionInNew === match.startInNew
 
-			let action
+			let action: Action | undefined = undefined
 
 			if (!matchStartsAtCurrentPositionInOld && !matchStartsAtCurrentPositionInNew) {
 				action = Action.replace
@@ -269,11 +265,9 @@ class HtmlDiff {
 				action = Action.insert
 			} else if (!matchStartsAtCurrentPositionInOld) {
 				action = Action.delete
-			} else {
-				action = Action.none
 			}
 
-			if (action !== Action.none) {
+			if (action !== undefined) {
 				const op = new Operation(action, positionInOld, match.startInOld, positionInNew, match.startInNew)
 				operations.push(op)
 			}
@@ -357,7 +351,6 @@ class HtmlDiff {
 		for (let i = this.matchGranularity; i > 0; i--) {
 			let options = MatchOptions
 			options.blockSize = i
-			options.repeatingTokensAccuracy = this.repeatingTokensAccuracy
 			options.ignoreWhitespaceDifferences = this.ignoreWhiteSpaceDifferences
 			options.matchers = matchers
 

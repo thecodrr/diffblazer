@@ -21,7 +21,6 @@ export type HTMLDiffOptions = {
 	 * @default 4
 	 */
 	matchGranularity: number
-	repeatingTokensAccuracy: number
 	ignoreWhiteSpaceDifferences: boolean
 	orphanMatchThreshold: number
 	atomicTags: string[]

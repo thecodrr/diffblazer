@@ -2,7 +2,6 @@
 	equal,
 	delete,
 	insert,
-	none,
 	replace,
 }
 

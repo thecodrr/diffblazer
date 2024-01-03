@@ -9,14 +9,14 @@ export type TagToken = {
 }
 export type Token = TextToken | TagToken
 
-type TagRange = { start?: number; end?: number; nameEnd?: number }
+type TagRange = { start: number; end: number; nameEnd?: number }
 const DEFAULT_ATOMIC_TAGS = ['head', 'style', 'script', 'math', 'object', 'video', 'iframe']
 /**
  * Tokenizes a string of HTML.
  **/
 function tokenizeHtml(text: string, atomicTags: string[] = DEFAULT_ATOMIC_TAGS) {
 	const tokens: Token[] = []
-	let tagRange: TagRange = {}
+	let tagRange: TagRange = { end: -1, start: -1 }
 
 	// we don't actually ignore these tags but only split their
 	// contents as a single token instead. This way we can be
@@ -72,11 +72,6 @@ function tokenizeHtml(text: string, atomicTags: string[] = DEFAULT_ATOMIC_TAGS) 
 	tokenizer.end()
 
 	function pushTag(range: TagRange, type?: 'closing' | 'declaration' | 'self-closing') {
-		if (!range.start || !range.end) {
-			tagRange = {}
-			return
-		}
-
 		const tagName = text.slice(range.start, range.nameEnd || range.end)
 		const tag = range.nameEnd ? text.slice(range.start, range.end) : tagName
 		let tagStart = type === 'declaration' ? `<!` : type === 'closing' ? '</' : '<'
@@ -105,18 +100,17 @@ function tokenizeHtml(text: string, atomicTags: string[] = DEFAULT_ATOMIC_TAGS) 
 				length: range.end - range.start,
 			})
 		}
-		tagRange = {}
+		tagRange = { end: -1, start: -1 }
 	}
 
 	return tokens
 }
 
-function joinTokens(tokens: Token[], separator?: string): string {
+function joinTokens(tokens: Token[]): string {
 	let str = ''
 	for (let i = 0; i < tokens.length; ++i) {
 		const token = tokens[i]
 		str += token.type === 'text' ? token.value : token.raw
-		if (separator && i < tokens.length - 1) str += separator
 	}
 	return str
 }

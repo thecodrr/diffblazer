@@ -33,6 +33,10 @@ describe('tokenize html', function () {
 		expect(tokenizeHtml('<p>hello</br>goodbye</p>')).toMatchSnapshot()
 	})
 
+	it('should identify doctype', function () {
+		expect(tokenizeHtml('<!doctype><p>hello</p>')).toMatchSnapshot()
+	})
+
 	describe('when encountering atomic tags', function () {
 		it('should identify an image tag as a single token', function () {
 			expect(tokenizeHtml('<p><img src="1.jpg"><img src="2.jpg"></p>', ['img'])).toMatchSnapshot()

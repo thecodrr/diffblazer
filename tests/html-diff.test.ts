@@ -173,6 +173,20 @@ describe('Diff', function () {
 				endInNew: 1,
 			})
 		})
+
+		it('should show two images are the same if they have invalid src attribute', function () {
+			var before = '<img src=yxyx>'
+			var after = '<img src=whwu29282>'
+
+			expect(ops(before, after).length).to.equal(1)
+			expect(ops(before, after)[0]).to.eql({
+				action: Action.equal,
+				startInOld: 0,
+				endInOld: 1,
+				startInNew: 0,
+				endInNew: 1,
+			})
+		})
 	})
 
 	describe('Widget Differences', function () {

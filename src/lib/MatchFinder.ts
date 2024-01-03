@@ -50,7 +50,6 @@ export default class MatchFinder {
 	indexNewTokens() {
 		this.tokenIndices = new Map()
 		let block: string[] = [''].slice(1)
-		let threshold = this.newTokens.length + this.options.repeatingTokensAccuracy
 		let blacklist = new Set<string>()
 
 		for (let i = this.startInNew; i < this.endInNew; i++) {
@@ -63,17 +62,6 @@ export default class MatchFinder {
 
 			const index = this.tokenIndices.get(key)
 			if (index) {
-				// This removes & blacklists tokens that occur too many times.
-				// This way it reduces total count of comparison operations
-				// and as result the diff algorithm takes less time. But the
-				// side effect is that it may detect false differences of
-				// the repeating tokens.
-				if (index.length >= threshold) {
-					blacklist.add(key)
-					this.tokenIndices.delete(key)
-					continue
-				}
-
 				index.push(i)
 			} else {
 				this.tokenIndices.set(key, [i])

@@ -3,43 +3,30 @@ import Match from './Match'
 import MatchFinder from './MatchFinder'
 import Operation from './Operation'
 import MatchOptions from './MatchOptions'
-import * as WordSplitter from './WordSplitter'
+import * as Tokenizer from './Tokenizer'
 import * as Utils from './Utils'
-import type { HTMLDiffOptions } from './types'
+import type { DiffClassNames, DiffTags, HTMLDiffOptions } from './types'
 
-// This value defines balance between speed and memory utilization. The higher it is the faster it works and more memory consumes.
 const MatchGranuarityMaximum = 4
 
-const specialCaseClosingTags = new Map([
-	['</strong>', 0],
-	['</em>', 0],
-	['</b>', 0],
-	['</i>', 0],
-	['</big>', 0],
-	['</small>', 0],
-	['</u>', 0],
-	['</sub>', 0],
-	['</strike>', 0],
-	['</s>', 0],
-	['</dfn>', 0],
-])
-
-const specialCaseOpeningTagRegex = /<((strong)|(b)|(i)|(dfn)|(em)|(big)|(small)|(u)|(sub)|(sup)|(strike)|(s))[\>\s]+/gi
+const specialCaseTags = new Set(['strong', 'em', 'b', 'i', 'big', 'small', 'u', 'sub', 'strike', 's', 'dfn', 'span'])
 
 class HtmlDiff {
 	private content: string[]
 	private newText: string
 	private oldText: string
 
-	private specialTagDiffStack: string[]
-	private newWords: string[]
-	private oldWords: string[]
+	private specialTagDiffStack: Tokenizer.TagToken[]
+	private newTokens: Tokenizer.Token[]
+	private oldTokens: Tokenizer.Token[]
 	private matchGranularity: number
-	private blockExpressions: RegExp[]
 
-	private repeatingWordsAccuracy: number
+	private repeatingTokensAccuracy: number
 	private ignoreWhiteSpaceDifferences: boolean
 	private orphanMatchThreshold: number
+	private ignoredTags: string[]
+	private classNames: DiffClassNames
+	private tags: DiffTags
 
 	constructor(oldText: string, newText: string, options?: Partial<HTMLDiffOptions>) {
 		this.content = []
@@ -47,14 +34,24 @@ class HtmlDiff {
 		this.oldText = oldText
 
 		this.specialTagDiffStack = []
-		this.newWords = []
-		this.oldWords = []
-		this.matchGranularity = 0
-		this.blockExpressions = []
+		this.newTokens = []
+		this.oldTokens = []
+		this.matchGranularity = options?.matchGranularity ?? MatchGranuarityMaximum
 
-		this.repeatingWordsAccuracy = options?.repeatingWordsAccuracy ?? 1.0
+		this.repeatingTokensAccuracy = options?.repeatingTokensAccuracy ?? 1.0
 		this.ignoreWhiteSpaceDifferences = options?.ignoreWhiteSpaceDifferences ?? false
 		this.orphanMatchThreshold = options?.orphanMatchThreshold ?? 0.0
+		this.ignoredTags = options?.ignoredTags ?? ['head', 'style', 'script']
+		this.classNames = options?.classNames ?? {
+			del: 'diffdel',
+			ins: 'diffins',
+			replace: 'diffmod',
+			mod: 'mod',
+		}
+		this.tags = options?.tags ?? {
+			del: 'del',
+			ins: 'ins',
+		}
 	}
 
 	static execute(oldText: string, newText: string, options?: Partial<HTMLDiffOptions>) {
@@ -66,9 +63,9 @@ class HtmlDiff {
 			return this.newText
 		}
 
-		this.splitInputsIntoWords()
+		this.tokenizeInputs()
 
-		this.matchGranularity = Math.min(MatchGranuarityMaximum, this.oldWords.length, this.newWords.length)
+		this.matchGranularity = Math.min(this.matchGranularity, this.oldTokens.length, this.newTokens.length)
 		let operations = this.operations()
 
 		for (let item of operations) {
@@ -78,17 +75,13 @@ class HtmlDiff {
 		return this.content.join('')
 	}
 
-	addBlockExpression(exp: RegExp) {
-		this.blockExpressions.push(exp)
-	}
-
-	splitInputsIntoWords() {
-		this.oldWords = WordSplitter.convertHtmlToListOfWords(this.oldText, this.blockExpressions)
+	tokenizeInputs() {
+		this.oldTokens = Tokenizer.tokenizeHtml(this.oldText, this.ignoredTags)
 
 		//free memory, allow it for GC
 		this.oldText = ''
 
-		this.newWords = WordSplitter.convertHtmlToListOfWords(this.newText, this.blockExpressions)
+		this.newTokens = Tokenizer.tokenizeHtml(this.newText, this.ignoredTags)
 
 		//free memory, allow it for GC
 		this.newText = ''
@@ -100,10 +93,10 @@ class HtmlDiff {
 				this.processEqualOperation(opp)
 				break
 			case Action.delete:
-				this.processDeleteOperation(opp, 'diffdel')
+				this.processDeleteOperation(opp, this.classNames.del)
 				break
 			case Action.insert:
-				this.processInsertOperation(opp, 'diffins')
+				this.processInsertOperation(opp, this.classNames.ins)
 				break
 			case Action.none:
 				break
@@ -114,104 +107,111 @@ class HtmlDiff {
 	}
 
 	processReplaceOperation(opp: Operation) {
-		this.processDeleteOperation(opp, 'diffmod')
-		this.processInsertOperation(opp, 'diffmod')
+		this.processDeleteOperation(opp, this.classNames.replace)
+		this.processInsertOperation(opp, this.classNames.replace)
 	}
 
 	processInsertOperation(opp: Operation, cssClass: string) {
-		let text = this.newWords.filter((_, pos) => pos >= opp.startInNew && pos < opp.endInNew)
-		this.insertTag('ins', cssClass, text)
+		let text = this.newTokens.filter((_, pos) => pos >= opp.startInNew && pos < opp.endInNew)
+		this.insertTag(this.tags.ins, cssClass, text)
 	}
 
 	processDeleteOperation(opp: Operation, cssClass: string) {
-		let text = this.oldWords.filter((_, pos) => pos >= opp.startInOld && pos < opp.endInOld)
-		this.insertTag('del', cssClass, text)
+		let text = this.oldTokens.filter((_, pos) => pos >= opp.startInOld && pos < opp.endInOld)
+		this.insertTag(this.tags.del, cssClass, text)
 	}
 
 	processEqualOperation(opp: Operation) {
-		let result = this.newWords.filter((_, pos) => pos >= opp.startInNew && pos < opp.endInNew)
-		this.content.push(result.join(''))
+		let result = this.newTokens.filter((_, pos) => pos >= opp.startInNew && pos < opp.endInNew)
+		this.content.push(Tokenizer.joinTokens(result))
 	}
 
-	insertTag(tag: string, cssClass: string, words: string[]) {
-		while (words.length) {
-			let nonTags = this.extractConsecutiveWords(words, (x) => !Utils.isTag(x))
+	insertTag(tag: string, cssClass: string, tokens: Tokenizer.Token[]) {
+		while (tokens.length) {
+			let nonTags = this.extractConsecutiveTokens(tokens, Utils.isNotTag)
 
 			let specialCaseTagInjection = ''
 			let specialCaseTagInjectionIsBefore = false
 
 			if (nonTags.length !== 0) {
-				let text = Utils.wrapText(nonTags.join(''), tag, cssClass)
+				let text = Utils.wrapText(Tokenizer.joinTokens(nonTags), tag, cssClass)
 				this.content.push(text)
 			} else {
-				if (specialCaseOpeningTagRegex.test(words[0])) {
-					let matchedTag = words[0].match(specialCaseOpeningTagRegex)
-					let tag = '<' + matchedTag?.[0].replace(/(<|>| )/g, '') + '>'
-					this.specialTagDiffStack.push(tag)
-					specialCaseTagInjection = '<ins class="mod">'
-					if (tag === 'del') {
-						words.shift()
+				const firstToken = tokens[0]
+				if (firstToken.type === 'tag-start' && specialCaseTags.has(firstToken.name)) {
+					this.specialTagDiffStack.push(firstToken)
+					specialCaseTagInjection = `<${this.tags.ins} class='${this.classNames.mod}'>`
+					if (tag === this.tags.del) {
+						tokens.shift()
 
-						while (words.length > 0 && specialCaseOpeningTagRegex.test(words[0])) {
-							words.shift()
+						while (tokens.length > 0 && tokens[0].type === 'tag-start' && specialCaseTags.has(tokens[0].name)) {
+							tokens.shift()
 						}
 					}
-				} else if (specialCaseClosingTags.has(words[0])) {
+				} else if (firstToken.type === 'tag-end' && specialCaseTags.has(firstToken.name)) {
 					let openingTag = this.specialTagDiffStack.length === 0 ? null : this.specialTagDiffStack.pop()
 
-					if (!(openingTag === null || openingTag !== words[0].replace(/\//g, ''))) {
-						specialCaseTagInjection = '</ins>'
+					// const hasOpeningTag = !!openingTag
+					const lastToken = tokens.at(-1)
+					const openingAndClosingTagsMatch =
+						openingTag && lastToken?.type === 'tag-end' && openingTag.name === lastToken.name
+					if (openingAndClosingTagsMatch) {
+						specialCaseTagInjection = `</${this.tags.ins}>`
 						specialCaseTagInjectionIsBefore = true
 					}
 
-					if (tag === 'del') {
-						words.shift()
+					if (tag === this.tags.del) {
+						tokens.shift()
 
-						while (words.length > 0 && specialCaseClosingTags.has(words[0])) {
-							words.shift()
+						while (tokens.length > 0 && tokens[0].type === 'tag-end' && specialCaseTags.has(tokens[0].name)) {
+							tokens.shift()
 						}
 					}
 				}
 
-				if (words.length === 0 && specialCaseTagInjection.length === 0) {
+				if (tokens.length === 0 && specialCaseTagInjection.length === 0) {
 					break
 				}
 
 				if (specialCaseTagInjectionIsBefore) {
-					this.content.push(specialCaseTagInjection + this.extractConsecutiveWords(words, Utils.isTag).join(''))
+					this.content.push(
+						specialCaseTagInjection + Tokenizer.joinTokens(this.extractConsecutiveTokens(tokens, Utils.isTag)),
+					)
 				} else {
-					this.content.push(this.extractConsecutiveWords(words, Utils.isTag).join('') + specialCaseTagInjection)
+					this.content.push(
+						Tokenizer.joinTokens(this.extractConsecutiveTokens(tokens, Utils.isTag)) + specialCaseTagInjection,
+					)
 				}
 			}
 		}
 	}
 
-	extractConsecutiveWords(words: string[], condition: (value: string) => boolean) {
+	extractConsecutiveTokens(tokens: Tokenizer.Token[], condition: (value: Tokenizer.Token) => boolean) {
 		let indexOfFirstTag: number | null = null
 
-		for (let i = 0; i < words.length; i++) {
-			let word = words[i]
+		for (let i = 0; i < tokens.length; i++) {
+			let token = tokens[i]
 
-			if (i === 0 && word === ' ') {
-				words[i] = '&nbsp;'
+			if (i === 0 && token.type === 'text' && token.value === ' ') {
+				token.value = '&nbsp;'
 			}
 
-			if (!condition(word)) {
+			if (!condition(token)) {
 				indexOfFirstTag = i
 				break
 			}
 		}
 
 		if (indexOfFirstTag !== null) {
-			let items = words.filter((_, pos) => pos >= 0 && pos < indexOfFirstTag!)
+			let items = tokens.filter((_, pos) => pos >= 0 && pos < indexOfFirstTag!)
 			if (indexOfFirstTag > 0) {
-				words.splice(0, indexOfFirstTag)
+				tokens.splice(0, indexOfFirstTag)
 			}
 
 			return items
 		} else {
-			let items = words.filter((_, pos) => pos >= 0 && pos < words.length)
-			words.splice(0, words.length)
+			let items = tokens.filter((_, pos) => pos >= 0 && pos < tokens.length)
+			tokens.splice(0, tokens.length)
 			return items
 		}
 	}
@@ -219,10 +219,10 @@ class HtmlDiff {
 	operations() {
 		let positionInOld = 0
 		let positionInNew = 0
-		let operations = []
+		let operations: Operation[] = []
 
 		let matches = this.matchingBlocks()
-		matches.push(new Match(this.oldWords.length, this.newWords.length, 0))
+		matches.push(new Match(this.oldTokens.length, this.newTokens.length, 0))
 
 		let matchesWithoutOrphans = this.removeOrphans(matches)
 
@@ -278,11 +278,11 @@ class HtmlDiff {
 				continue
 			}
 
-			let sumLength = (t: number, n: string) => t + n.length
+			let sumLength = (t: number, n: Tokenizer.Token) => t + n.length
 
-			let oldDistanceInChars = this.oldWords.slice(prev?.endInOld, next.startInOld).reduce(sumLength, 0)
-			let newDistanceInChars = this.newWords.slice(prev?.endInNew, next.startInNew).reduce(sumLength, 0)
-			let currMatchLengthInChars = this.newWords.slice(curr.startInNew, curr.endInNew).reduce(sumLength, 0)
+			let oldDistanceInChars = this.oldTokens.slice(prev?.endInOld, next.startInOld).reduce(sumLength, 0)
+			let newDistanceInChars = this.newTokens.slice(prev?.endInNew, next.startInNew).reduce(sumLength, 0)
+			let currMatchLengthInChars = this.newTokens.slice(curr.startInNew, curr.endInNew).reduce(sumLength, 0)
 			if (currMatchLengthInChars > Math.max(oldDistanceInChars, newDistanceInChars) * this.orphanMatchThreshold) {
 				yield curr
 			}
@@ -296,7 +296,7 @@ class HtmlDiff {
 
 	matchingBlocks() {
 		let matchingBlocks: Match[] = []
-		this.findMatchingBlocks(0, this.oldWords.length, 0, this.newWords.length, matchingBlocks)
+		this.findMatchingBlocks(0, this.oldTokens.length, 0, this.newTokens.length, matchingBlocks)
 		return matchingBlocks
 	}
 
@@ -326,10 +326,10 @@ class HtmlDiff {
 		for (let i = this.matchGranularity; i > 0; i--) {
 			let options = MatchOptions
 			options.blockSize = i
-			options.repeatingWordsAccuracy = this.repeatingWordsAccuracy
+			options.repeatingTokensAccuracy = this.repeatingTokensAccuracy
 			options.ignoreWhitespaceDifferences = this.ignoreWhiteSpaceDifferences
 
-			let finder = new MatchFinder(this.oldWords, this.newWords, startInOld, endInOld, startInNew, endInNew, options)
+			let finder = new MatchFinder(this.oldTokens, this.newTokens, startInOld, endInOld, startInNew, endInNew, options)
 			let match = finder.findMatch()
 			if (match !== null) {
 				return match

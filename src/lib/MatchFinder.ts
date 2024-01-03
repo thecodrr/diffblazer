@@ -1,9 +1,10 @@
 ﻿import Match from './Match'
 import MatchOptions from './MatchOptions'
 import * as Utils from './Utils'
+import * as Tokenizer from './Tokenizer'
 
-function putNewWord(block: string[], word: string, blockSize: number) {
-	block.push(word)
+function putNewToken(block: string[], token: string, blockSize: number) {
+	block.push(token)
 
 	if (block.length > blockSize) {
 		block.shift()
@@ -18,69 +19,81 @@ function putNewWord(block: string[], word: string, blockSize: number) {
 
 // Finds the longest match in given texts. It uses indexing with fixed granularity that is used to compare blocks of text.
 export default class MatchFinder {
-	private oldWords: string[]
-	private newWords: string[]
+	private oldTokens: Tokenizer.Token[]
+	private newTokens: Tokenizer.Token[]
 	private startInOld: number
 	private endInOld: number
 	private startInNew: number
 	private endInNew: number
 	private options: MatchOptions
-	private wordIndices: Map<string, number[]>
+	private tokenIndices: Map<string, number[]>
 
 	constructor(
-		oldWords: string[],
-		newWords: string[],
+		oldTokens: Tokenizer.Token[],
+		newTokens: Tokenizer.Token[],
 		startInOld: number,
 		endInOld: number,
 		startInNew: number,
 		endInNew: number,
 		options: MatchOptions,
 	) {
-		this.oldWords = oldWords
-		this.newWords = newWords
+		this.oldTokens = oldTokens
+		this.newTokens = newTokens
 		this.startInOld = startInOld
 		this.endInOld = endInOld
 		this.startInNew = startInNew
 		this.endInNew = endInNew
 		this.options = options
-		this.wordIndices = new Map()
+		this.tokenIndices = new Map()
 	}
 
-	indexNewWords() {
-		this.wordIndices = new Map()
-		let block: string[] = []
-		for (let i = this.startInNew; i < this.endInNew; i++) {
-			// if word is a tag, we should ignore attributes as attribute changes are not supported (yet)
-			let word = this.normalizeForIndex(this.newWords[i])
-			let key = putNewWord(block, word, this.options.blockSize)
+	indexNewTokens() {
+		this.tokenIndices = new Map()
+		let block: string[] = [''].slice(1)
+		let threshold = this.newTokens.length + this.options.repeatingTokensAccuracy
+		let blacklist = new Set<string>()
 
-			if (key === null) {
+		for (let i = this.startInNew; i < this.endInNew; i++) {
+			let token = this.normalizeForIndex(this.newTokens[i])
+			let key = putNewToken(block, token, this.options.blockSize)
+
+			if (key === null || blacklist.has(key)) {
 				continue
 			}
 
-			if (this.wordIndices.has(key)) {
-				this.wordIndices.get(key)?.push(i)
+			const index = this.tokenIndices.get(key)
+			if (index) {
+				// This removes & blacklists tokens that occur too many times.
+				// This way it reduces total count of comparison operations
+				// and as result the diff algorithm takes less time. But the
+				// side effect is that it may detect false differences of
+				// the repeating tokens.
+				if (index.length >= threshold) {
+					blacklist.add(key)
+					this.tokenIndices.delete(key)
+					continue
+				}
+
+				index.push(i)
 			} else {
-				this.wordIndices.set(key, [i])
+				this.tokenIndices.set(key, [i])
 			}
 		}
 	}
 
-	// Converts the word to index-friendly value so it can be compared with other similar words
-	normalizeForIndex(word: string) {
-		word = Utils.stripAnyAttributes(word)
-		if (this.options.ignoreWhitespaceDifferences && Utils.isWhiteSpace(word)) {
+	// Converts the token to index-friendly value so it can be compared with other similar tokens
+	normalizeForIndex(token: Tokenizer.Token) {
+		if (this.options.ignoreWhitespaceDifferences && token.type === 'text' && Utils.isWhiteSpace(token.value)) {
 			return ' '
 		}
 
-		return word
+		return token.type === 'text' ? token.value : token.name
 	}
 
 	findMatch() {
-		this.indexNewWords()
-		this.removeRepeatingWords()
+		this.indexNewTokens()
 
-		if (this.wordIndices.size === 0) {
+		if (this.tokenIndices.size === 0) {
 			return null
 		}
 
@@ -90,11 +103,11 @@ export default class MatchFinder {
 
 		let matchLengthAt = new Map()
 		const blockSize = this.options.blockSize
-		let block: string[] = []
+		let block: string[] = [''].slice(1)
 
 		for (let indexInOld = this.startInOld; indexInOld < this.endInOld; indexInOld++) {
-			let word = this.normalizeForIndex(this.oldWords[indexInOld])
-			let index = putNewWord(block, word, blockSize)
+			let token = this.normalizeForIndex(this.oldTokens[indexInOld])
+			let index = putNewToken(block, token, blockSize)
 
 			if (index === null) {
 				continue
@@ -102,13 +115,14 @@ export default class MatchFinder {
 
 			let newMatchLengthAt = new Map()
 
-			if (!this.wordIndices.has(index)) {
+			const tokenIndices = this.tokenIndices.get(index)
+			if (!tokenIndices) {
 				matchLengthAt = newMatchLengthAt
 				continue
 			}
 
-			for (let indexInNew of this.wordIndices.get(index)!) {
-				let newMatchLength = (matchLengthAt.has(indexInNew - 1) ? matchLengthAt.get(indexInNew - 1) : 0) + 1
+			for (let indexInNew of tokenIndices) {
+				let newMatchLength = (matchLengthAt.get(indexInNew - 1) || 0) + 1
 				newMatchLengthAt.set(indexInNew, newMatchLength)
 
 				if (newMatchLength > bestMatchSize) {
@@ -122,18 +136,5 @@ export default class MatchFinder {
 		}
 
 		return bestMatchSize !== 0 ? new Match(bestMatchInOld, bestMatchInNew, bestMatchSize + blockSize - 1) : null
-	}
-
-	// This method removes words that occur too many times. This way it reduces total count of comparison operations
-	// and as result the diff algorithm takes less time. But the side effect is that it may detect false differences of
-	// the repeating words.
-	removeRepeatingWords() {
-		let threshold = this.newWords.length + this.options.repeatingWordsAccuracy
-		let repeatingWords = Array.from(this.wordIndices.entries())
-			.filter((i) => i[1].length > threshold)
-			.map((i) => i[0])
-		for (let w of repeatingWords) {
-			this.wordIndices.delete(w)
-		}
 	}
 }

@@ -1,15 +1,15 @@
-﻿import { TagToken } from './Tokenizer'
+﻿import { TagToken } from './tokenizer'
 
-type MatchOptions = {
+export type MatchOptions = {
 	blockSize: number
+	repeatingTokensAccuracy: number
 	ignoreWhitespaceDifferences: boolean
 	matchers: Record<string, (token: TagToken) => string>
 }
 
-const MatchOptions: MatchOptions = {
+export const MatchOptions: MatchOptions = {
 	matchers: {},
 	blockSize: 0,
+	repeatingTokensAccuracy: 1.0,
 	ignoreWhitespaceDifferences: false,
 }
-
-export default MatchOptions

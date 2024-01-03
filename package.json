@@ -1,24 +1,20 @@
 {
-	"name": "htmldiff-javascript",
-	"description": "Typescript port of HtmlDiff.Net which is itself a C# port of HtmlDiff",
-	"author": {
-		"email": "jibin.thomas2706@gmail.com",
-		"name": "Jibin Thomas"
-	},
+	"name": "diffmarker",
+	"description": "Blazing fast diff checker & marker for HTML and Plaintext",
+	"author": "Abdullah Atta <thecodrr@protonmail.com>",
 	"license": "MIT",
-	"version": "0.0.5",
-	"type": "module",
+	"version": "1.0.0",
 	"files": [
 		"dist"
 	],
-	"main": "./dist/htmldiff.umd.cjs",
-	"module": "./dist/htmldiff.js",
-	"types": "./dist/Diff.d.ts",
+	"main": "./dist/index.js",
+	"module": "./dist/index.mjs",
+	"types": "./dist/index.d.ts",
 	"exports": {
 		".": {
-			"import": "./dist/htmldiff.js",
-			"require": "./dist/htmldiff.umd.cjs",
-			"types": "./dist/Diff.d.ts"
+			"import": "./dist/index.mjs",
+			"require": "./dist/index.js",
+			"types": "./dist/index.d.ts"
 		}
 	},
 	"scripts": {

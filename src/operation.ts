@@ -1,6 +1,6 @@
-﻿import Action from './Action'
+﻿import { Action } from './action'
 
-export default class Operation {
+export class Operation {
 	public action: Action
 	public startInOld: number
 	public endInOld: number

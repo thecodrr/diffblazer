@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import HtmlDiff from '../src/lib/Diff'
-import Operation from '../src/lib/Operation'
-import Action from '../src/lib/Action'
+import { Diffmarker } from '../src'
+import { Operation } from '../src/operation'
+import { Action } from '../src/action'
 
 function ops(before: string, after: string) {
-	const res = new HtmlDiff(before, after)
+	const res = new Diffmarker(before, after)
 	res.tokenizeInputs()
 	return res.operations()
 }

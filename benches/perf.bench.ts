@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest'
-import HtmlDiff from '../src/lib/Diff'
+import { mark } from '../src'
 import diff from 'node-htmldiff'
 
 describe('benchmark', () => {
@@ -348,7 +348,7 @@ describe('benchmark', () => {
     </html>
     `
 	bench('htmldiff', () => {
-		HtmlDiff.execute(oldText, newText)
+		mark(oldText, newText)
 	})
 
 	bench('node-htmldiff', () => {

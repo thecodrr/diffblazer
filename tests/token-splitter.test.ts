@@ -1,5 +1,5 @@
 import { expect, it, describe } from 'vitest'
-import { tokenizeHtml } from '../src/lib/Tokenizer'
+import { tokenizeHtml } from '../src/tokenizer'
 
 describe('tokenize html', function () {
 	describe('when called with text', function () {

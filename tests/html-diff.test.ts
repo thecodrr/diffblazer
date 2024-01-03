@@ -1,6 +1,6 @@
 import { expect, it, describe } from 'vitest'
-import HtmlDiff from '../src/lib/Diff'
-import Action from '../src/lib/Action'
+import { Diffmarker, diff } from '../src'
+import { Action } from '../src/action'
 
 it('with standard specs', () => {
 	function TestCase(oldText: any, newText: string, expected: string) {
@@ -91,13 +91,13 @@ it('with standard specs', () => {
 	]
 
 	for (const [testCase] of testCases) {
-		const result = HtmlDiff.execute(testCase.oldText, testCase.newText)
+		const result = diff(testCase.oldText, testCase.newText)
 		expect(result).toBe(testCase.expected)
 	}
 })
 
 function ops(before: string, after: string) {
-	const res = new HtmlDiff(before, after)
+	const res = new Diffmarker(before, after)
 	res.tokenizeInputs()
 	return res.operations()
 }
@@ -105,43 +105,33 @@ function ops(before: string, after: string) {
 describe('Diff', function () {
 	describe('When both inputs are the same', function () {
 		it('should return the text', function () {
-			expect(HtmlDiff.execute('input text', 'input text')).equal('input text')
+			expect(diff('input text', 'input text')).equal('input text')
 		})
 	})
 
 	describe('When a letter is added', function () {
 		it('should mark the new letter', function () {
-			expect(HtmlDiff.execute('input', 'input 2')).to.equal("input<ins class='diffins'>&nbsp;2</ins>")
+			expect(diff('input', 'input 2')).to.equal("input<ins class='diffins'>&nbsp;2</ins>")
 		})
 	})
 
 	describe('Whitespace differences', function () {
 		it('should collapse adjacent whitespace if ignoreWhiteSpaceDifferences is true', function () {
-			expect(HtmlDiff.execute('Much \n\t    spaces', 'Much spaces', { ignoreWhiteSpaceDifferences: true })).to.equal(
-				'Much spaces',
-			)
+			expect(diff('Much \n\t    spaces', 'Much spaces', { ignoreWhiteSpaceDifferences: true })).to.equal('Much spaces')
 		})
 
 		it('should not collapse adjacent whitespace if ignoreWhiteSpaceDifferences is false', function () {
-			expect(HtmlDiff.execute('Much \n\t    spaces', 'Much spaces')).to.equal(
+			expect(diff('Much \n\t    spaces', 'Much spaces')).to.equal(
 				`Much<del class='diffmod'> \n\t    </del><ins class='diffmod'>&nbsp;</ins>spaces`,
 			)
 		})
 
 		it.fails('should consider non-breaking spaces as equal', function () {
-			expect(HtmlDiff.execute('Hello&nbsp;world', 'Hello&#160;world')).to.equal('Hello&#160;world')
+			expect(diff('Hello&nbsp;world', 'Hello&#160;world')).to.equal('Hello&#160;world')
 		})
 
 		it.fails('should consider non-breaking spaces and non-adjacent regular spaces as equal', function () {
-			expect(HtmlDiff.execute('Hello&nbsp;world', 'Hello world')).to.equal('Hello world')
-		})
-	})
-
-	describe('When a class name is specified', function () {
-		it('should include the class in the wrapper tags', function () {
-			expect(
-				HtmlDiff.execute('input', 'input 2', { classNames: { ins: 'diff-result', del: '', mod: '', replace: '' } }),
-			).to.equal("input<ins class='diff-result'>&nbsp;2</ins>")
+			expect(diff('Hello&nbsp;world', 'Hello world')).to.equal('Hello world')
 		})
 	})
 

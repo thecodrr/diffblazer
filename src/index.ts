@@ -1,14 +1,36 @@
-﻿import Action from './Action'
-import Match from './Match'
-import MatchFinder from './MatchFinder'
-import Operation from './Operation'
-import MatchOptions from './MatchOptions'
-import * as Tokenizer from './Tokenizer'
-import * as Utils from './Utils'
-import type { DiffClassNames, DiffTags, HTMLDiffOptions } from './types'
+﻿import { Action } from './action'
+import { Match } from './match'
+import { MatchFinder } from './match-finder'
+import { Operation } from './operation'
+import { MatchOptions } from './match-options'
+import { Token, TagToken, DEFAULT_ATOMIC_TAGS, tokenizeHtml, joinTokens } from './tokenizer'
+import { isNotTag, isTag, wrapText } from './utils'
+import type { Markers, Marker, Options } from './types'
 
 const MatchGranuarityMaximum = 4
 
+const defaultMarkers: Markers = {
+	delete: {
+		start: `<del class='diffdel'>`,
+		end: `</del>`,
+	},
+	insert: {
+		start: `<ins class='diffins'>`,
+		end: `</ins>`,
+	},
+	modify: {
+		start: `<ins class='mod'>`,
+		end: `</ins>`,
+	},
+	replaceInsert: {
+		start: `<ins class='diffmod'>`,
+		end: `</ins>`,
+	},
+	replaceDelete: {
+		start: `<del class='diffmod'>`,
+		end: `</del>`,
+	},
+}
 const specialCaseTags = new Set(['strong', 'em', 'b', 'i', 'big', 'small', 'u', 'sub', 'strike', 's', 'dfn', 'span'])
 
 const ATTRIBUTE_REGEX = (attr: string) => new RegExp(` ${attr}=(.+?['"])`)
@@ -16,7 +38,7 @@ const SRC_REGEX = ATTRIBUTE_REGEX('src')
 const DATA_REGEX = ATTRIBUTE_REGEX('data')
 const MATH_CONTENT_REGEX = /<math.*?>(.+)?<\/\s*math>/
 
-function attributeMatcher(token: Tokenizer.TagToken, attributes: Record<string, RegExp>) {
+function attributeMatcher(token: TagToken, attributes: Record<string, RegExp>) {
 	let text = token.name
 	for (const attr in attributes) {
 		if (token.raw.includes(` ${attr}=`)) {
@@ -30,59 +52,42 @@ function attributeMatcher(token: Tokenizer.TagToken, attributes: Record<string, 
 }
 
 const matchers = {
-	img: (token: Tokenizer.TagToken) => attributeMatcher(token, { src: SRC_REGEX }),
-	object: (token: Tokenizer.TagToken) => attributeMatcher(token, { data: DATA_REGEX }),
-	math: (token: Tokenizer.TagToken) => {
+	img: (token: TagToken) => attributeMatcher(token, { src: SRC_REGEX }),
+	object: (token: TagToken) => attributeMatcher(token, { data: DATA_REGEX }),
+	math: (token: TagToken) => {
 		const matches = MATH_CONTENT_REGEX.exec(token.raw)
 		return matches ? matches[1] : token.name
 	},
-	video: (token: Tokenizer.TagToken) => attributeMatcher(token, { src: SRC_REGEX }),
-	iframe: (token: Tokenizer.TagToken) => attributeMatcher(token, { src: SRC_REGEX }),
+	video: (token: TagToken) => attributeMatcher(token, { src: SRC_REGEX }),
+	iframe: (token: TagToken) => attributeMatcher(token, { src: SRC_REGEX }),
 }
 
-class HtmlDiff {
-	private content: string[]
-	private newText: string
-	private oldText: string
+export class Diffmarker {
+	private content: string[] = []
 
-	private specialTagDiffStack: Tokenizer.TagToken[]
-	private newTokens: Tokenizer.Token[]
-	private oldTokens: Tokenizer.Token[]
-	private matchGranularity: number
+	private specialTagDiffStack: TagToken[]
+	private newTokens: Token[] = []
+	private oldTokens: Token[] = []
+	private matchGranularity = 0
+	private options: Options
 
-	private ignoreWhiteSpaceDifferences: boolean
-	private orphanMatchThreshold: number
-	private atomicTags: string[]
-	private classNames: DiffClassNames
-	private tags: DiffTags
-
-	constructor(oldText: string, newText: string, options?: Partial<HTMLDiffOptions>) {
-		this.content = []
-		this.newText = newText
-		this.oldText = oldText
-
+	constructor(private oldText: string, private newText: string, options?: Partial<Options>) {
 		this.specialTagDiffStack = []
 		this.newTokens = []
 		this.oldTokens = []
-		this.matchGranularity = options?.matchGranularity ?? MatchGranuarityMaximum
 
-		this.ignoreWhiteSpaceDifferences = options?.ignoreWhiteSpaceDifferences ?? false
-		this.orphanMatchThreshold = options?.orphanMatchThreshold ?? 0.0
-		this.atomicTags = options?.atomicTags ?? Tokenizer.DEFAULT_ATOMIC_TAGS
-		this.classNames = options?.classNames ?? {
-			del: 'diffdel',
-			ins: 'diffins',
-			replace: 'diffmod',
-			mod: 'mod',
+		this.options = {
+			atomicTags: DEFAULT_ATOMIC_TAGS,
+			ignoreWhiteSpaceDifferences: false,
+			orphanMatchThreshold: 0.0,
+			markers: {
+				...options?.markers,
+				...defaultMarkers,
+			},
+			matchGranularity: MatchGranuarityMaximum,
+			repeatingWordsAccuracy: 1.0,
+			...options,
 		}
-		this.tags = options?.tags ?? {
-			del: 'del',
-			ins: 'ins',
-		}
-	}
-
-	static execute(oldText: string, newText: string, options?: Partial<HTMLDiffOptions>) {
-		return new HtmlDiff(oldText, newText, options).build()
 	}
 
 	build() {
@@ -92,7 +97,6 @@ class HtmlDiff {
 
 		this.tokenizeInputs()
 
-		this.matchGranularity = Math.min(this.matchGranularity, this.oldTokens.length, this.newTokens.length)
 		let operations = this.operations()
 		for (let item of operations) {
 			this.performOperation(item)
@@ -102,12 +106,12 @@ class HtmlDiff {
 	}
 
 	tokenizeInputs() {
-		this.oldTokens = Tokenizer.tokenizeHtml(this.oldText, this.atomicTags)
+		this.oldTokens = tokenizeHtml(this.oldText, this.options.atomicTags)
 
 		//free memory, allow it for GC
 		this.oldText = ''
 
-		this.newTokens = Tokenizer.tokenizeHtml(this.newText, this.atomicTags)
+		this.newTokens = tokenizeHtml(this.newText, this.options.atomicTags)
 
 		//free memory, allow it for GC
 		this.newText = ''
@@ -119,10 +123,10 @@ class HtmlDiff {
 				this.processEqualOperation(opp)
 				break
 			case Action.delete:
-				this.processDeleteOperation(opp, this.classNames.del)
+				this.processDeleteOperation(opp, this.options.markers.delete)
 				break
 			case Action.insert:
-				this.processInsertOperation(opp, this.classNames.ins)
+				this.processInsertOperation(opp, this.options.markers.insert)
 				break
 			case Action.replace:
 				this.processReplaceOperation(opp)
@@ -131,45 +135,45 @@ class HtmlDiff {
 	}
 
 	processReplaceOperation(opp: Operation) {
-		this.processDeleteOperation(opp, this.classNames.replace)
-		this.processInsertOperation(opp, this.classNames.replace)
+		this.processDeleteOperation(opp, this.options.markers.replaceDelete)
+		this.processInsertOperation(opp, this.options.markers.replaceInsert)
 	}
 
-	processInsertOperation(opp: Operation, cssClass: string) {
+	processInsertOperation(opp: Operation, marker: Marker) {
 		let text = this.newTokens.filter((_, pos) => pos >= opp.startInNew && pos < opp.endInNew)
-		this.insertTag(this.tags.ins, cssClass, text)
+		this.markDifference(marker, text, Action.insert)
 	}
 
-	processDeleteOperation(opp: Operation, cssClass: string) {
+	processDeleteOperation(opp: Operation, marker: Marker) {
 		let text = this.oldTokens.filter((_, pos) => pos >= opp.startInOld && pos < opp.endInOld)
-		this.insertTag(this.tags.del, cssClass, text)
+		this.markDifference(marker, text, Action.delete)
 	}
 
 	processEqualOperation(opp: Operation) {
 		let result = this.newTokens.filter((_, pos) => pos >= opp.startInNew && pos < opp.endInNew)
-		this.content.push(Tokenizer.joinTokens(result))
+		this.content.push(joinTokens(result))
 	}
 
-	insertTag(tag: string, cssClass: string, tokens: Tokenizer.Token[]) {
+	markDifference(marker: Marker, tokens: Token[], action: Action) {
 		while (tokens.length) {
 			let nonTags = this.extractConsecutiveTokens(
 				tokens,
-				(x) => Utils.isNotTag(x) || this.atomicTags.includes(x.name) || x.name === 'img',
+				(x) => isNotTag(x) || this.options.atomicTags.includes(x.name) || x.name === 'img',
 			)
 
 			let specialCaseTagInjection = ''
 			let specialCaseTagInjectionIsBefore = false
 
 			if (nonTags.length !== 0) {
-				let text = Utils.wrapText(Tokenizer.joinTokens(nonTags), tag, cssClass)
+				let text = wrapText(joinTokens(nonTags), marker)
 				this.content.push(text)
 			} else {
 				const firstToken = tokens[0]
 				if (firstToken.type === 'tag-start' && specialCaseTags.has(firstToken.name)) {
 					this.specialTagDiffStack.push(firstToken)
-					specialCaseTagInjection = `<${this.tags.ins} class='${this.classNames.mod}'>`
+					specialCaseTagInjection = this.options.markers.modify.start
 
-					if (tag === this.tags.del) {
+					if (action === Action.delete) {
 						tokens.shift()
 						while (tokens.length > 0 && tokens[0].type === 'tag-start' && specialCaseTags.has(tokens[0].name)) {
 							tokens.shift()
@@ -183,11 +187,11 @@ class HtmlDiff {
 						openingTag && lastToken?.type === 'tag-end' && openingTag.name === lastToken.name
 
 					if (openingAndClosingTagsMatch) {
-						specialCaseTagInjection = `</${this.tags.ins}>`
+						specialCaseTagInjection = this.options.markers.modify.end
 						specialCaseTagInjectionIsBefore = true
 					}
 
-					if (tag === this.tags.del) {
+					if (action === Action.delete) {
 						tokens.shift()
 						while (tokens.length > 0 && tokens[0].type === 'tag-end' && specialCaseTags.has(tokens[0].name)) {
 							tokens.shift()
@@ -200,19 +204,15 @@ class HtmlDiff {
 				}
 
 				if (specialCaseTagInjectionIsBefore) {
-					this.content.push(
-						specialCaseTagInjection + Tokenizer.joinTokens(this.extractConsecutiveTokens(tokens, Utils.isTag)),
-					)
+					this.content.push(specialCaseTagInjection + joinTokens(this.extractConsecutiveTokens(tokens, isTag)))
 				} else {
-					this.content.push(
-						Tokenizer.joinTokens(this.extractConsecutiveTokens(tokens, Utils.isTag)) + specialCaseTagInjection,
-					)
+					this.content.push(joinTokens(this.extractConsecutiveTokens(tokens, isTag)) + specialCaseTagInjection)
 				}
 			}
 		}
 	}
 
-	extractConsecutiveTokens(tokens: Tokenizer.Token[], condition: (value: Tokenizer.Token) => boolean) {
+	extractConsecutiveTokens(tokens: Token[], condition: (value: Token) => boolean) {
 		let indexOfFirstTag: number | null = null
 
 		for (let i = 0; i < tokens.length; i++) {
@@ -243,6 +243,11 @@ class HtmlDiff {
 	}
 
 	operations() {
+		this.matchGranularity = Math.min(
+			this.options.matchGranularity,
+			Math.min(this.oldTokens.length, this.newTokens.length),
+		)
+
 		let positionInOld = 0
 		let positionInNew = 0
 		let operations: Operation[] = []
@@ -250,7 +255,7 @@ class HtmlDiff {
 		let matches = this.matchingBlocks()
 		matches.push(new Match(this.oldTokens.length, this.newTokens.length, 0))
 
-		let matchesWithoutOrphans = this.removeOrphans(matches)
+		let matchesWithoutOrphans = this.options.orphanMatchThreshold > 0 ? this.removeOrphans(matches) : matches
 
 		for (let match of matchesWithoutOrphans) {
 			if (match === null) continue
@@ -303,12 +308,15 @@ class HtmlDiff {
 				continue
 			}
 
-			let sumLength = (t: number, n: Tokenizer.Token) => t + n.length
+			let sumLength = (t: number, n: Token) => t + n.length
 
 			let oldDistanceInChars = this.oldTokens.slice(prev?.endInOld, next.startInOld).reduce(sumLength, 0)
 			let newDistanceInChars = this.newTokens.slice(prev?.endInNew, next.startInNew).reduce(sumLength, 0)
 			let currMatchLengthInChars = this.newTokens.slice(curr.startInNew, curr.endInNew).reduce(sumLength, 0)
-			if (currMatchLengthInChars > Math.max(oldDistanceInChars, newDistanceInChars) * this.orphanMatchThreshold) {
+			if (
+				currMatchLengthInChars >
+				Math.max(oldDistanceInChars, newDistanceInChars) * this.options.orphanMatchThreshold
+			) {
 				yield curr
 			}
 
@@ -351,8 +359,9 @@ class HtmlDiff {
 		for (let i = this.matchGranularity; i > 0; i--) {
 			let options = MatchOptions
 			options.blockSize = i
-			options.ignoreWhitespaceDifferences = this.ignoreWhiteSpaceDifferences
+			options.ignoreWhitespaceDifferences = this.options.ignoreWhiteSpaceDifferences
 			options.matchers = matchers
+			options.repeatingTokensAccuracy = this.options.repeatingWordsAccuracy
 
 			let finder = new MatchFinder(this.oldTokens, this.newTokens, startInOld, endInOld, startInNew, endInNew, options)
 			let match = finder.findMatch()
@@ -363,21 +372,14 @@ class HtmlDiff {
 
 		return null
 	}
-
-	// private expandToWrapTag(tokens: Tokenizer.Token[], start: number, end: number) {
-	// 	let newEnd = end
-	// 	for (let i = start; i < end; ++i) {
-	// 		const token = tokens[i]
-	// 		if (token.type === 'tag-start' && !token.selfClosing) {
-	// 			let endToken = tokens.findIndex((t, index) => index > i && t.type === 'tag-end' && t.name === token.name)
-	// 			if (endToken === -1) continue
-	// 			endToken++
-	// 			if (endToken <= newEnd) continue
-	// 			newEnd = endToken
-	// 		}
-	// 	}
-	// 	return newEnd
-	// }
 }
 
-export default HtmlDiff
+export function mark(oldHtml: string, newHtml: string, options?: Partial<Options>) {
+	return new Diffmarker(oldHtml, newHtml, options).build()
+}
+export {
+	/**
+	 * Alias for `mark`
+	 */
+	mark as diff,
+}

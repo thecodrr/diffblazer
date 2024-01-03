@@ -1,7 +1,7 @@
-﻿import Match from './Match'
-import MatchOptions from './MatchOptions'
-import * as Utils from './Utils'
-import * as Tokenizer from './Tokenizer'
+﻿import { Match } from './match'
+import { MatchOptions } from './match-options'
+import { isWhiteSpace } from './utils'
+import { Token } from './tokenizer'
 
 function putNewToken(block: string[], token: string, blockSize: number) {
 	block.push(token)
@@ -18,9 +18,9 @@ function putNewToken(block: string[], token: string, blockSize: number) {
 }
 
 // Finds the longest match in given texts. It uses indexing with fixed granularity that is used to compare blocks of text.
-export default class MatchFinder {
-	private oldTokens: Tokenizer.Token[]
-	private newTokens: Tokenizer.Token[]
+export class MatchFinder {
+	private oldTokens: Token[]
+	private newTokens: Token[]
 	private startInOld: number
 	private endInOld: number
 	private startInNew: number
@@ -29,8 +29,8 @@ export default class MatchFinder {
 	private tokenIndices: Map<string, number[]>
 
 	constructor(
-		oldTokens: Tokenizer.Token[],
-		newTokens: Tokenizer.Token[],
+		oldTokens: Token[],
+		newTokens: Token[],
 		startInOld: number,
 		endInOld: number,
 		startInNew: number,
@@ -51,6 +51,7 @@ export default class MatchFinder {
 		this.tokenIndices = new Map()
 		let block: string[] = [''].slice(1)
 		let blacklist = new Set<string>()
+		let threshold = this.newTokens.length * this.options.repeatingTokensAccuracy
 
 		for (let i = this.startInNew; i < this.endInNew; i++) {
 			let token = this.normalizeForIndex(this.newTokens[i])
@@ -62,6 +63,17 @@ export default class MatchFinder {
 
 			const index = this.tokenIndices.get(key)
 			if (index) {
+				// This removes & blacklists tokens that occur too many times.
+				// This way it reduces total count of comparison operations
+				// and as result the diff algorithm takes less time. But the
+				// side effect is that it may detect false differences of
+				// the repeating tokens.
+				if (index.length >= threshold) {
+					blacklist.add(key)
+					this.tokenIndices.delete(key)
+					continue
+				}
+
 				index.push(i)
 			} else {
 				this.tokenIndices.set(key, [i])
@@ -70,8 +82,8 @@ export default class MatchFinder {
 	}
 
 	// Converts the token to index-friendly value so it can be compared with other similar tokens
-	normalizeForIndex(token: Tokenizer.Token) {
-		if (this.options.ignoreWhitespaceDifferences && token.type === 'text' && Utils.isWhiteSpace(token.value)) {
+	normalizeForIndex(token: Token) {
+		if (this.options.ignoreWhitespaceDifferences && token.type === 'text' && isWhiteSpace(token.value)) {
 			return ' '
 		}
 

@@ -1,4 +1,4 @@
-﻿export default class Match {
+﻿export class Match {
 	startInOld: number
 	startInNew: number
 	size: number

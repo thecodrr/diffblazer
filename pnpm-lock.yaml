@@ -22,6 +22,9 @@ devDependencies:
   html-minifier:
     specifier: ^4.0.0
     version: 4.0.0
+  node-htmldiff:
+    specifier: ^0.9.4
+    version: 0.9.4
   typescript:
     specifier: ^5.3.3
     version: 5.3.3
@@ -1258,6 +1261,11 @@ packages:
     resolution: {integrity: sha512-rmTZ9kz+f3rCvK2TD1Ue/oZlns7OGoIWP4fc3llxxRXlOkHKoWPPWJOfFYpITabSow43QJbRIoHQXtt10VldyQ==}
     dependencies:
       lower-case: 1.1.4
+    dev: true
+
+  /node-htmldiff@0.9.4:
+    resolution: {integrity: sha512-Nvnv0bcehOFsH/TD+bi4ls3iWTRQiytqII5+I1iBUypO+GFMYLcyBJfS2U3DMRSIYzfZHysaYLYoCXx6Q148Hg==}
+    hasBin: true
     dev: true
 
   /npm-run-path@5.2.0:

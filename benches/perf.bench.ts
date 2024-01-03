@@ -1,5 +1,6 @@
 import { bench, describe } from 'vitest'
 import HtmlDiff from '../src/lib/Diff'
+import diff from 'node-htmldiff'
 
 describe('benchmark', () => {
 	const oldText = `<!DOCTYPE html>
@@ -348,5 +349,9 @@ describe('benchmark', () => {
     `
 	bench('htmldiff', () => {
 		HtmlDiff.execute(oldText, newText)
+	})
+
+	bench('node-htmldiff', () => {
+		diff(oldText, newText)
 	})
 })

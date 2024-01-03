@@ -1,0 +1,17 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Adding tags > should be reported when adding new tags at the end 1`] = `"<div><b>1</b><strong>2</strong><i><ins class='mod'><ins class='diffins'>new</ins></ins></i></div>"`;
+
+exports[`Adding tags > should be reported when adding new tags at the start 1`] = `"<div><i><ins class='mod'><ins class='diffins'>new</ins></ins></i><b>1</b><strong>2</strong></div>"`;
+
+exports[`Adding tags > should be reported when adding new tags in the middle 1`] = `"<div><b>1</b><i><ins class='mod'><ins class='diffins'>new</ins></ins></i><strong>2</strong></div>"`;
+
+exports[`Multiple additions/removals > multiple paragraphs 1`] = `"<div id="multi"><a><ins class='diffins'>added</ins></a><b>1</b><br><i>2</i><strong><ins class='mod'><ins class='diffins'>Hello</ins></strong><em><ins class='diffins'>Hi!</ins></em><p>3</p><b>4</b><a>5</a><em><ins class='mod'><ins class='diffins'>Done.</ins></ins></em></div>"`;
+
+exports[`Multiple additions/removals > should be correctly recognized 1`] = `"<div id="multi"><a><ins class='diffins'>added</ins></a><b>1</b><br><i>2</i><strong><ins class='mod'><ins class='diffins'>Hello</ins></strong><em><ins class='diffins'>Hi!</ins></em><p>3</p><b>4</b><a>5</a><em><ins class='mod'><ins class='diffins'>Done.</ins></ins></em></div>"`;
+
+exports[`Removing tags > should be reported when removing tags at the end 1`] = `"<div><b>1</b><strong>2</strong><ins class='mod'><del class='diffdel'>removed</del></ins></div>"`;
+
+exports[`Removing tags > should be reported when removing tags at the start 1`] = `"<div><ins class='mod'><del class='diffdel'>removed</del></ins><b>1</b><strong>2</strong></div>"`;
+
+exports[`Removing tags > should be reported when removing tags in the middle 1`] = `"<div><b>1</b><ins class='mod'><del class='diffdel'>removed</del></ins><strong>2</strong></div>"`;

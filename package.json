@@ -22,14 +22,21 @@
 		}
 	},
 	"scripts": {
-		"dev": "vite src/demo",
 		"build": "tsc && vite build",
-		"publish": "npm publish --access public"
+		"test": "vitest --run",
+		"bench": "vitest bench",
+		"publish": "npm run test && npm run build && npm publish --access public"
 	},
 	"devDependencies": {
+		"@types/html-minifier": "^4.0.5",
 		"@types/node": "^20.4.4",
-		"typescript": "^5.1.6",
-		"vite": "^4.4.6",
-		"vite-plugin-dts": "^3.3.1"
+		"html-minifier": "^4.0.0",
+		"typescript": "^5.3.3",
+		"vite": "^5.0.10",
+		"vite-plugin-dts": "^3.3.1",
+		"vitest": "^1.1.1"
+	},
+	"dependencies": {
+		"htmlparser2": "^9.0.0"
 	}
 }

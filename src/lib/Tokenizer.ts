@@ -1,13 +1,20 @@
 ﻿import { Tokenizer } from 'htmlparser2'
 
 export type TextToken = { type: 'text'; value: string; length: number }
-export type TagToken = { type: 'tag-start' | 'tag-end'; name: string; raw: string; length: number }
+export type TagToken = {
+	type: 'tag-start' | 'tag-end' | 'tag-full'
+	name: string
+	raw: string
+	length: number
+}
 export type Token = TextToken | TagToken
+
 type TagRange = { start?: number; end?: number; nameEnd?: number }
+const DEFAULT_ATOMIC_TAGS = ['head', 'style', 'script', 'math', 'object', 'video', 'iframe']
 /**
  * Tokenizes a string of HTML.
  **/
-function tokenizeHtml(text: string, ignoredTags: string[] = []) {
+function tokenizeHtml(text: string, atomicTags: string[] = DEFAULT_ATOMIC_TAGS) {
 	const tokens: Token[] = []
 	let tagRange: TagRange = {}
 
@@ -75,16 +82,18 @@ function tokenizeHtml(text: string, ignoredTags: string[] = []) {
 		let tagStart = type === 'declaration' ? `<!` : type === 'closing' ? '</' : '<'
 		const raw = `${tagStart}${tag}>`
 
-		if (ignoring || ignoredTags.includes(tagName)) {
+		if (ignoring || atomicTags.includes(tagName)) {
 			ignoring = ignoring || {
 				tag: tagName,
 				content: '',
 			}
 			ignoring.content += raw
+
 			if (type && ignoring.tag === tagName) {
 				tokens.push({
-					type: 'text',
-					value: ignoring.content,
+					type: 'tag-full',
+					name: ignoring.tag,
+					raw: ignoring.content,
 					length: ignoring.content.length,
 				})
 			}
@@ -112,4 +121,4 @@ function joinTokens(tokens: Token[], separator?: string): string {
 	return str
 }
 
-export { joinTokens, tokenizeHtml }
+export { joinTokens, tokenizeHtml, DEFAULT_ATOMIC_TAGS }

@@ -87,7 +87,11 @@ export default class MatchFinder {
 			return ' '
 		}
 
-		return token.type === 'text' ? token.value : token.name
+		return token.type === 'text'
+			? token.value
+			: this.options.matchers[token.name]
+			? this.options.matchers[token.name](token)
+			: token.name
 	}
 
 	findMatch() {

@@ -1,5 +1,6 @@
-import { expect, it } from 'vitest'
+import { expect, it, describe } from 'vitest'
 import HtmlDiff from '../src/lib/Diff'
+import Action from '../src/lib/Action'
 
 it('with standard specs', () => {
 	function TestCase(oldText: any, newText: string, expected: string) {
@@ -95,39 +96,222 @@ it('with standard specs', () => {
 	}
 })
 
-// it('with group candididates and grouping configured', () => {
-// 	function TestCase(oldText: any, newText: string, groupExpression: RegExp | null, expected: string) {
-// 		return { oldText, newText, groupExpression, expected }
-// 	}
+function ops(before: string, after: string) {
+	const res = new HtmlDiff(before, after)
+	res.tokenizeInputs()
+	return res.operations()
+}
 
-// 	const testCases = [
-// 		// Shamelessly copied specs from here with a few modifications: https://github.com/myobie/htmldiff/blob/master/spec/htmldiff_spec.rb
+describe('Diff', function () {
+	describe('When both inputs are the same', function () {
+		it('should return the text', function () {
+			expect(HtmlDiff.execute('input text', 'input text')).equal('input text')
+		})
+	})
 
-// 		[
-// 			TestCase(
-// 				'This is a date 1 Jan 2016 that will change',
-// 				'This is a date 22 Feb 2017 that did change',
-// 				/[\d]{1,2}[\s]*(Jan|Feb)[\s]*[\d]{4}/g,
-// 				"This is a date<del class='diffmod'> 1 Jan 2016</del><ins class='diffmod'> 22 Feb 2017</ins> that <del class='diffmod'>will</del><ins class='diffmod'>did</ins> change",
-// 			),
-// 		],
-// 		[
-// 			TestCase(
-// 				'This is a date 1 Jan 2016 that will change',
-// 				"This is a date 22 Feb 2017 that won't change",
-// 				null,
-// 				"This is a date <del class='diffmod'>1</del><ins class='diffmod'>22</ins> <del class='diffmod'>Jan</del><ins class='diffmod'>Feb</ins> <del class='diffmod'>2016</del><ins class='diffmod'>2017</ins> that <del class='diffmod'>will</del><ins class='diffmod'>won't</ins> change",
-// 			),
-// 		],
-// 	]
+	describe('When a letter is added', function () {
+		it('should mark the new letter', function () {
+			expect(HtmlDiff.execute('input', 'input 2')).to.equal("input<ins class='diffins'>&nbsp;2</ins>")
+		})
+	})
 
-// 	for (const [testCase] of testCases) {
-// 		// const result = HtmlDiff.execute(testCase.oldText, testCase.newText)
-// 		const diff = new HtmlDiff(testCase.oldText, testCase.newText)
-// 		if (testCase.groupExpression) diff.addBlockExpression(testCase.groupExpression)
+	describe('Whitespace differences', function () {
+		it('should collapse adjacent whitespace if ignoreWhiteSpaceDifferences is true', function () {
+			expect(HtmlDiff.execute('Much \n\t    spaces', 'Much spaces', { ignoreWhiteSpaceDifferences: true })).to.equal(
+				'Much spaces',
+			)
+		})
 
-// 		const result = diff.build()
+		it('should not collapse adjacent whitespace if ignoreWhiteSpaceDifferences is false', function () {
+			expect(HtmlDiff.execute('Much \n\t    spaces', 'Much spaces')).to.equal(
+				`Much<del class='diffmod'> \n\t    </del><ins class='diffmod'>&nbsp;</ins>spaces`,
+			)
+		})
 
-// 		expect(result).toBe(testCase.expected)
-// 	}
-// })
+		it.fails('should consider non-breaking spaces as equal', function () {
+			expect(HtmlDiff.execute('Hello&nbsp;world', 'Hello&#160;world')).to.equal('Hello&#160;world')
+		})
+
+		it.fails('should consider non-breaking spaces and non-adjacent regular spaces as equal', function () {
+			expect(HtmlDiff.execute('Hello&nbsp;world', 'Hello world')).to.equal('Hello world')
+		})
+	})
+
+	describe('When a class name is specified', function () {
+		it('should include the class in the wrapper tags', function () {
+			expect(
+				HtmlDiff.execute('input', 'input 2', { classNames: { ins: 'diff-result', del: '', mod: '', replace: '' } }),
+			).to.equal("input<ins class='diff-result'>&nbsp;2</ins>")
+		})
+	})
+
+	describe('Image Differences', function () {
+		it('show two images as different if their src attributes are different', function () {
+			var before = '<img src="a.jpg">'
+			var after = '<img src="b.jpg">'
+
+			expect(ops(before, after).length).to.equal(1)
+			expect(ops(before, after)[0]).to.eql({
+				action: Action.replace,
+				startInOld: 0,
+				endInOld: 1,
+				startInNew: 0,
+				endInNew: 1,
+			})
+		})
+
+		it('should show two images are the same if their src attributes are the same', function () {
+			var before = '<img src="a.jpg">'
+			var after = '<img src="a.jpg" alt="hey!">'
+
+			expect(ops(before, after).length).to.equal(1)
+			expect(ops(before, after)[0]).to.eql({
+				action: Action.equal,
+				startInOld: 0,
+				endInOld: 1,
+				startInNew: 0,
+				endInNew: 1,
+			})
+		})
+	})
+
+	describe('Widget Differences', function () {
+		it('show two widgets as different if their data attributes are different', function () {
+			var before = '<object data="a.jpg"></object>'
+			var after = '<object data="b.jpg"></object>'
+
+			expect(ops(before, after).length).to.equal(1)
+			expect(ops(before, after)[0]).to.eql({
+				action: Action.replace,
+				startInOld: 0,
+				endInOld: 1,
+				startInNew: 0,
+				endInNew: 1,
+			})
+		})
+
+		it('should show two widgets are the same if their data attributes are the same', function () {
+			var before = '<object data="a.jpg"><param>yo!</param></object>'
+			var after = '<object data="a.jpg"></object>'
+
+			expect(ops(before, after).length).to.equal(1)
+			expect(ops(before, after)[0]).to.eql({
+				action: Action.equal,
+				startInOld: 0,
+				endInOld: 1,
+				startInNew: 0,
+				endInNew: 1,
+			})
+		})
+	})
+
+	describe('Math Differences', function () {
+		it('should show two math elements as different if their contents are different', function () {
+			var before =
+				'<math data-uuid="55784cd906504787a8e459e80e3bb554"><msqrt>' +
+				'<msup><mi>b</mi><mn>2</mn></msup></msqrt></math>'
+
+			var after =
+				'<math data-uuid="55784cd906504787a8e459e80e3bb554"><msqrt>' +
+				'<msup><mn>b</mn><mn>5</mn></msup></msqrt></math>'
+
+			expect(ops(before, after).length).to.equal(1)
+			expect(ops(before, after)[0]).to.eql({
+				action: Action.replace,
+				startInOld: 0,
+				endInOld: 1,
+				startInNew: 0,
+				endInNew: 1,
+			})
+		})
+
+		it('should show two math elements as the same if their contents are the same', function () {
+			var before =
+				'<math data-uuid="15568cd906504876548459e80e356878"><msqrt>' +
+				'<msup><mi>b</mi><mn>2</mn></msup></msqrt></math>'
+
+			var after =
+				'<math data-uuid="55784cd906504787a8e459e80e3bb554"><msqrt>' +
+				'<msup><mi>b</mi><mn>2</mn></msup></msqrt></math>'
+
+			expect(ops(before, after).length).to.equal(1)
+			expect(ops(before, after)[0]).to.eql({
+				action: Action.equal,
+				startInOld: 0,
+				endInOld: 1,
+				startInNew: 0,
+				endInNew: 1,
+			})
+		})
+	})
+
+	describe('Video Differences', function () {
+		it('show two videos as different if their src attributes are different', function () {
+			var before =
+				'<video data-uuid="0787866ab5494d88b4b1ee423453224b">' +
+				'<source src="inkling-video:///big_buck_bunny/webm_high" type="video/webm" /></video>'
+
+			var after =
+				'<video data-uuid="0787866ab5494d88b4b1ee423453224b">' +
+				'<source src="inkling-video:///big_buck_rabbit/mp4" type="video/webm" /></video>'
+
+			expect(ops(before, after).length).to.equal(1)
+			expect(ops(before, after)[0]).to.eql({
+				action: Action.replace,
+				startInOld: 0,
+				endInOld: 1,
+				startInNew: 0,
+				endInNew: 1,
+			})
+		})
+
+		it('should show two videos as the same if their src attributes are the same', function () {
+			var before =
+				'<video data-uuid="65656565655487787484545454548494">' +
+				'<source src="inkling-video:///big_buck_bunny/webm_high" type="video/webm" /></video>'
+
+			var after =
+				'<video data-uuid="0787866ab5494d88b4b1ee423453224b">' +
+				'<source src="inkling-video:///big_buck_bunny/webm_high" type="video/webm" /></video>'
+
+			expect(ops(before, after).length).to.equal(1)
+			expect(ops(before, after)[0]).to.eql({
+				action: Action.equal,
+				startInOld: 0,
+				endInOld: 1,
+				startInNew: 0,
+				endInNew: 1,
+			})
+		})
+	})
+
+	describe('iframe Differences', function () {
+		it('show two iframes as different if their src attributes are different', function () {
+			var before = '<iframe src="a.jpg"></iframe>'
+			var after = '<iframe src="b.jpg"></iframe>'
+
+			expect(ops(before, after).length).to.equal(1)
+			expect(ops(before, after)[0]).to.eql({
+				action: Action.replace,
+				startInOld: 0,
+				endInOld: 1,
+				startInNew: 0,
+				endInNew: 1,
+			})
+		})
+
+		it('should show two iframes as the same if their src attributes are the same', function () {
+			var before = '<iframe src="a.jpg"></iframe>'
+			var after = '<iframe src="a.jpg" class="foo"></iframe>'
+
+			expect(ops(before, after).length).to.equal(1)
+			expect(ops(before, after)[0]).to.eql({
+				action: Action.equal,
+				startInOld: 0,
+				endInOld: 1,
+				startInNew: 0,
+				endInNew: 1,
+			})
+		})
+	})
+})

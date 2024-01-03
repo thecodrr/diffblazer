@@ -24,7 +24,7 @@ export type HTMLDiffOptions = {
 	repeatingTokensAccuracy: number
 	ignoreWhiteSpaceDifferences: boolean
 	orphanMatchThreshold: number
-	ignoredTags: string[]
+	atomicTags: string[]
 	classNames: DiffClassNames
 	tags: DiffTags
 }

@@ -2,8 +2,12 @@
 	"name": "diffblazer",
 	"description": "A super fast diffing utility for HTML and Plaintext",
 	"author": "Abdullah Atta <thecodrr@protonmail.com>",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/thecodrr/diffblazer.git"
+	},
 	"license": "MIT",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"files": [
 		"dist"
 	],

@@ -1,6 +1,6 @@
 {
-	"name": "diffmarker",
-	"description": "Blazing fast diff checker & marker for HTML and Plaintext",
+	"name": "diffblazer",
+	"description": "A super fast diffing utility for HTML and Plaintext",
 	"author": "Abdullah Atta <thecodrr@protonmail.com>",
 	"license": "MIT",
 	"version": "1.0.0",
@@ -14,6 +14,7 @@
 		"htmldiff",
 		"diff",
 		"diffmarker",
+		"diffblazer",
 		"html",
 		"diff checker"
 	],

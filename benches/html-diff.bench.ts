@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest'
-import { mark } from '../src'
+import { diff as diffblazer } from '../src'
 import diff from 'node-htmldiff'
 
 describe('benchmark', () => {
@@ -347,8 +347,8 @@ describe('benchmark', () => {
       </body>
     </html>
     `
-	bench('htmldiff', () => {
-		mark(oldText, newText)
+	bench('diffblazer', () => {
+		diffblazer(oldText, newText)
 	})
 
 	bench('node-htmldiff', () => {

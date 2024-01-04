@@ -1,6 +1,6 @@
-<h1 align='center'>Diffmarker</h1>
+<h1 align='center'>Diffblazer</h1>
 
-<p align='center'>Blazing fast diff checker & marker for HTML and Plaintext</p>
+<p align='center'>A super fast diffing utility for HTML and Plaintext</p>
 
 This work is based on [htmldiff.net](https://github.com/Rohland/htmldiff.net). Originally, I forked [htmldiff-javascript](https://github.com/jibin2706/htmldiff-javascript) (which is a fork of [htmldiff-js](https://github.com/dfoverdx/htmldiff-js)), but now the code has almost completely deviated. A summary of the changes:
 
@@ -17,18 +17,18 @@ This work is based on [htmldiff.net](https://github.com/Rohland/htmldiff.net). O
 ## Installation
 
 ```bash
-npm install diffmarker
+npm install diffblazer
 ```
 
 ## Usage
 
 ```ts
-import { mark } from 'diffmarker'
+import { diff } from 'diffblazer'
 
 const oldHtml = '<p>hello world</p>'
 const newHtml = '<p>hello world!</p>'
 
-mark(oldHtml, newHtml)
+diff(oldHtml, newHtml)
 
 // Output: <p>hello world<ins class='diffins'>!</ins></p>
 ```
@@ -38,12 +38,12 @@ mark(oldHtml, newHtml)
 Aside from marking differences using HTML tags, you can also specify your own markers. This can be anything:
 
 ```ts
-import { mark } from 'diffmarker'
+import { diff } from 'diffblazer'
 
 const oldText = 'hello world'
 const newText = 'hello beautiful world'
 
-mark(oldText, newText, {
+diff(oldText, newText, {
 	markers: {
 		insert: {
 			start: '**',
@@ -58,17 +58,17 @@ mark(oldText, newText, {
 ## Benchmarks
 
 ```
- ✓ benches/perf.bench.ts (2) 1213ms
-   ✓ benchmark (2) 1212ms
-     name                 hz     min      max    mean     p75     p99    p995    p999     rme  samples
-   · htmldiff       5,686.57  0.1438  12.3739  0.1759  0.1643  0.4403  0.5771  2.1525  ±5.18%     2844   fastest
-   · node-htmldiff    683.27  1.3091   2.1181  1.4635  1.5439  1.9495  2.0071  2.1181  ±0.97%      342
+ ✓ benches/html-diff.bench.ts (2) 1212ms
+   ✓ benchmark (2) 1210ms
+     name                 hz     min     max    mean     p75     p99    p995    p999     rme  samples
+   · diffblazer     5,980.63  0.1440  2.2266  0.1672  0.1657  0.3724  0.4760  0.9363  ±1.30%     2991   fastest
+   · node-htmldiff    615.75  1.3015  3.3126  1.6240  1.6930  3.0620  3.2030  3.3126  ±2.60%      308
 
 
  BENCH  Summary
 
-  htmldiff - benches/perf.bench.ts > benchmark
-    8.32x faster than node-htmldiff
+  diffblazer - benches/html-diff.bench.ts > benchmark
+    9.71x faster than node-htmldiff
 ```
 
 To run these benchmarks yourself:

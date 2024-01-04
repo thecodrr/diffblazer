@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { Diffmarker } from '../src'
+import { Diffblazer } from '../src'
 import { Operation } from '../src/operation'
 import { Action } from '../src/action'
 
 function ops(before: string, after: string) {
-	const res = new Diffmarker(before, after)
+	const res = new Diffblazer(before, after)
 	res.tokenizeInputs()
 	return res.operations()
 }

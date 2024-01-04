@@ -62,7 +62,7 @@ const matchers = {
 	iframe: (token: TagToken) => attributeMatcher(token, { src: SRC_REGEX }),
 }
 
-export class Diffmarker {
+export class Diffblazer {
 	private content: string[] = []
 
 	private specialTagDiffStack: TagToken[]
@@ -374,12 +374,6 @@ export class Diffmarker {
 	}
 }
 
-export function mark(oldHtml: string, newHtml: string, options?: Partial<Options>) {
-	return new Diffmarker(oldHtml, newHtml, options).build()
-}
-export {
-	/**
-	 * Alias for `mark`
-	 */
-	mark as diff,
+export function diff(oldHtml: string, newHtml: string, options?: Partial<Options>) {
+	return new Diffblazer(oldHtml, newHtml, options).build()
 }

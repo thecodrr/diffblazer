@@ -1,5 +1,5 @@
 import { expect, it, describe } from 'vitest'
-import { Diffmarker, diff } from '../src'
+import { Diffblazer, diff } from '../src'
 import { Action } from '../src/action'
 
 it('with standard specs', () => {
@@ -97,7 +97,7 @@ it('with standard specs', () => {
 })
 
 function ops(before: string, after: string) {
-	const res = new Diffmarker(before, after)
+	const res = new Diffblazer(before, after)
 	res.tokenizeInputs()
 	return res.operations()
 }

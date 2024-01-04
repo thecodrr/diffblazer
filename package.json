@@ -29,7 +29,7 @@
 		"build": "tsc && vite build",
 		"test": "vitest --run",
 		"bench": "vitest bench",
-		"publish": "npm run test && npm run build && npm publish --access public"
+		"prepublishOnly": "npm run test && npm run build"
 	},
 	"devDependencies": {
 		"@types/html-minifier": "^4.0.5",

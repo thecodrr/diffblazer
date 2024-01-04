@@ -55,6 +55,28 @@ mark(oldText, newText, {
 // Output: hello **beautiful** world
 ```
 
+## Benchmarks
+
+```
+ ✓ benches/perf.bench.ts (2) 1213ms
+   ✓ benchmark (2) 1212ms
+     name                 hz     min      max    mean     p75     p99    p995    p999     rme  samples
+   · htmldiff       5,686.57  0.1438  12.3739  0.1759  0.1643  0.4403  0.5771  2.1525  ±5.18%     2844   fastest
+   · node-htmldiff    683.27  1.3091   2.1181  1.4635  1.5439  1.9495  2.0071  2.1181  ±0.97%      342
+
+
+ BENCH  Summary
+
+  htmldiff - benches/perf.bench.ts > benchmark
+    8.32x faster than node-htmldiff
+```
+
+To run these benchmarks yourself:
+
+```
+npm run bench
+```
+
 ## Contributing
 
 If you'd like to contribute to this project, you can do so in the following ways:

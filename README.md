@@ -54,3 +54,7 @@ mark(oldText, newText, {
 
 // Output: hello **beautiful** world
 ```
+
+## License
+
+Copyright © 2024 Abdullah Atta under MIT. [Read full text here.](/LICENSE)

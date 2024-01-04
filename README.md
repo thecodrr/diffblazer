@@ -55,6 +55,20 @@ mark(oldText, newText, {
 // Output: hello **beautiful** world
 ```
 
+## Contributing
+
+If you'd like to contribute to this project, you can do so in the following ways:
+
+1. Report an issue
+2. Implement a feature
+3. Fix a bug
+
+Before you open a PR, make sure to run the tests, like so:
+
+```
+npm run test
+```
+
 ## License
 
 Copyright © 2024 Abdullah Atta under MIT. [Read full text here.](/LICENSE)

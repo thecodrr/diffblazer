@@ -10,6 +10,13 @@
 	"main": "./dist/index.js",
 	"module": "./dist/index.mjs",
 	"types": "./dist/index.d.ts",
+	"keywords": [
+		"htmldiff",
+		"diff",
+		"diffmarker",
+		"html",
+		"diff checker"
+	],
 	"exports": {
 		".": {
 			"import": "./dist/index.mjs",
